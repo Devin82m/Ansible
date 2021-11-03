@@ -1,0 +1,278 @@
+# ansible-playbook universal_patching.yml -i inventory/1devin --extra-vars "env= version= old_version= networx_1= workflow_1=" --vault-password-file /home/<username>/.<username>
+# need to run as <username> user. Anything commented out will need to be run manually.
+# Required variables:
+#   version = Version number of the upgrade
+#   old_version = The Previous version number
+#   env = Environment name (dev, cfg, sys, ppmo, prod)
+#   networx_1 = The number in the name of the service (9081 or 20081)
+#   workflow_1 = The number in the name of the service (9083 or 20083)
+# Created by Devin St. Clair
+
+
+## App Gateway Patch ##
+---
+- hosts: facets_core,fhg_core,fxi_core
+  user: <username>
+  gather_facts: no
+  become: no
+  vars_files:
+    - /home/<username>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+    files_path: /opt/nas/facets_ansible/
+
+  tasks:
+
+  - name: Copy Installers APP
+    win_copy:
+      src: "{{ item }}"
+      dest: C:\temp\
+    with_items:
+      - /opt/nas/facets_ansible/Facets_BRAppServer_{{ version }}.exe
+      - /opt/nas/facets_ansible/facets_app_{{ version }}_response_{{ env }}.iss
+
+#  - name: Install Quartly
+ #   win_shell: |
+  #    C:\temp\Facets_BRAppServer_{{ version }}.exe /s /f1"C:\temp\facets_app_{{ version }}_response_{{ env }}.iss"
+  
+  - pause:
+
+
+
+## HIPPA Gateway Patch ##    
+
+- hosts: fhg_core
+  user: <username>
+  become: no
+  gather_facts: no
+  vars_files:
+    - /home/<username>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+
+  tasks:
+
+  - name: Copy Installers HIPPA
+    win_copy:
+      src: "{{ item }}"
+      dest: C:\temp\
+    with_items:
+      - /opt/nas/facets_ansible/Facets_HIPAA_Gateway_Web_Applications_{{ version }}.exe
+      - /opt/nas/facets_ansible/facets_hippa_{{ version }}_{{ env }}.iss
+      - /opt/nas/facets_ansible/HIPAA_Gateway_ST_{{ version }}.exe
+      - /opt/nas/facets_ansible/facets_hippa_st_{{ version }}_{{ env }}.iss
+      - /opt/nas/facets_ansible/HIPAA_Gateway_ST_{{ old_version }}.exe
+      - /opt/nas/facets_ansible/hippa_gateway_st_{{ old_version }}_Uninstall.iss
+
+  - name: Backup Hippa Gateway Files
+    win_copy:
+      src: "{{ item }}"
+      dest: C:\temp\
+      remote_src: yes
+    with_items:
+      - D:\TIBCO\Instream\Custom\TZMasterTPAutomation.csv
+      - D:\TIBCO\Instream\Custom\ApfProfiles\TZCMPOTBST.apf
+      - D:\TIBCO\Instream\Custom\ApfProfiles\TZCMPINBST.apf
+
+#  - name: Uninstall Old HIPPA ST Gateway
+ #   win_shell: |
+  #    C:\temp\HIPAA_Gateway_ST_{{ old_version }}.exe /s /f1"C:\temp\hippa_gateway_st_{{ old_version }}_Uninstall.iss"
+
+  - name: Install Hippa Gateway
+    win_shell: |
+      C:\temp\Facets_HIPAA_Gateway_Web_Applications_{{ version }}.exe /s /f1"C:\temp\facets_hippa_{{ version }}_{{ env }}.iss"
+
+#  - name: Install Hippa ST
+ #   win_shell: |
+  #    C:\temp\HIPAA_Gateway_ST_{{ version }}.exe /s /f1"C:\temp\facets_hippa_st_{{ version }}_{{ env }}.iss"
+
+  - pause:
+
+  - name: Rename HIPAA
+    win_shell: |
+      Rename-Item -Path "D:\TIBCO\Instream\Custom\TZMasterTPAutomation.csv" -NewName "TZMasterTPAutomation.csv_ORIG_$(get-date -f yyyy-MM-dd)"
+      Rename-Item -Path "D:\TIBCO\Instream\Custom\ApfProfiles\TZCMPOTBST.apf" -NewName "TZCMPOTBST.apf_ORIG_$(get-date -f yyyy-MM-dd)"
+      Rename-Item -Path "D:\TIBCO\Instream\Custom\ApfProfiles\TZCMPINBST.apf" -NewName "TZCMPINBST.apf_ORIG_$(get-date -f yyyy-MM-dd)"
+
+  - name: Restore TZMasterTPAutomation.csv
+    win_copy:
+      src: C:\temp\TZMasterTPAutomation.csv
+      dest: D:\TIBCO\Instream\Custom\
+      remote_src: yes
+
+  - name: Restore TZCMPOTBST.apf
+    win_copy:
+      src: C:\temp\TZCMPOTBST.apf
+      dest: D:\TIBCO\Instream\Custom\ApfProfiles\
+      remote_src: yes
+
+  - name: Restore TZCMPINBST.apf
+    win_copy:
+      src: C:\temp\TZCMPINBST.apf
+      dest: D:\TIBCO\Instream\Custom\ApfProfiles\
+      remote_src: yes
+
+
+## FXI Web Service Library Patch ##
+
+- hosts: fxi_core,fhg_core
+  user: <username>
+  become: no
+  gather_facts: no
+  vars_files:
+    - /home/<username>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+
+  tasks:
+
+  - name: Copy Installers Web Service Library
+    win_copy:
+      src: "{{ item }}"
+      dest: C:\temp\
+    with_items:
+      - /opt/nas/facets_ansible/Facets_WebServiceLibrary_{{ version }}.exe
+      - /opt/nas/facets_ansible/facets_webservice_response_{{ version }}.iss
+
+ 
+
+  - name: Make Backup Directories
+    win_file:
+      path: "{{ item }}"
+      state: directory
+    with_items:
+      - C:\temp\FXI
+      - C:\temp\FacetsWebServiceLibrary
+      - C:\temp\FXI_CAE
+
+  - name: Check to see if FXI Web.config exists
+    win_stat:
+      path: D:\inetpub\wwwroot\FXI\web.config
+    register: fxi_webconfig
+
+  - name: Backup FXI Web.config
+    win_copy:
+      src: D:\inetpub\wwwroot\FXI\web.config
+      dest: C:\temp\FXI\
+      remote_src: yes
+    when: fxi_webconfig.stat.exists == True
+
+  - name: Check to see if FXI FacetsWebServiceLibrary Web.config exists
+    win_stat:
+      path: D:\inetpub\wwwroot\FXI\FacetsWebServiceLibrary\web.config
+    register: fxi_facetsWebservicelibrary_webconfig
+
+  - name: Backup FXI FacetsWebServiceLibrary Web.config
+    win_copy:
+      src: D:\inetpub\wwwroot\FXI\FacetsWebServiceLibrary\web.config
+      dest: C:\temp\
+      remote_src: yes
+    when: fxi_facetsWebservicelibrary_webconfig.stat.exists == True
+
+  - name: Check to see if FXI_CAE FacetsWebServiceLibrary Web.config exists
+    win_stat:
+      path: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\web.config
+    register: fxi_facetsWebservicelibrary_webconfig
+
+  - name: Backup FXI_CAE FacetsWebServiceLibrary Web.config
+    win_copy:
+      src: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\web.config
+      dest: C:\temp\FXI_CAE\
+      remote_src: yes
+    when: fxi_cae_facetswebservicelibrary_webconfig.stat.exists == True
+
+  - name: Check to see if FXI FacetsWebServiceLibrary Default.html exists
+    win_stat:
+      path: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\default.html
+    register: fxi_facetsWebservicelibrary_default
+
+  - name: Backup FXI_CAE FacetsWebServiceLibrary Web.config
+
+    win_copy:
+      src: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\default.html
+      dest: C:\temp\FXI_CAE\
+      remote_src: yes
+    when: fxi_facetsWebservicelibrary_default.stat.exists == True
+
+#  - name: Install FXI Web Service Library
+ #   win_shell: |
+  #    C:\temp\Facets_WebServiceLibrary_{{ version }}.exe /s /f1"C:\temp\facets_webservice_response_{{ version }}.iss"
+
+  - pause:
+
+  - name: Copy FXI to FXI_CAE
+    win_copy:
+      src: D:\inetpub\wwwroot\fxi\FacetsWebServiceLibrary
+      dest: D:\inetpub\wwwroot\FXI_CAE\
+      remote_src: yes
+
+  - name: Restore FXI Web.config
+    win_copy:
+      src: C:\temp\FXI\web.config
+      dest: D:\inetpub\wwwroot\FXI\
+      remote_src: yes
+    when: fxi_webconfig.stat.exists == True
+
+  - name: Restore FXI FacetsWebServiceLibrary Web.config
+    win_copy:
+      src: C:\temp\web.config
+      dest: D:\inetpub\wwwroot\FXI\FacetsWebServiceLibrary\
+      remote_src: yes
+    when: fxi_facetsWebservicelibrary_webconfig.stat.exists == True
+
+  - name: Restore FXI_CAE FacetsWebServiceLibrary Web.config
+    win_copy:
+      src: C:\temp\FXI_CAE\web.config
+      dest: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\
+      remote_src: yes
+    when: fxi_cae_facetswebservicelibrary_webconfig.stat.exists == True
+
+  - name: Restore FXI_CAE FacetsWebServiceLibrary Web.config
+    win_copy:
+      src: C:\temp\FXI_CAE\default.html
+      dest: D:\inetpub\wwwroot\FXI_CAE\FacetsWebServiceLibrary\
+      remote_src: yes
+    when: fxi_facetsWebservicelibrary_default.stat.exists == True
+
+
+  ## NetworkX Patch ##
+
+- hosts: nwx_core
+  user: <username>
+  become: no
+  gather_facts: no
+  vars_files:
+    - /home/<username>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+
+  tasks:
+
+  - name: Copy Installers NWX
+    win_copy:
+      src: "{{ item }}"
+      dest: C:\temp\
+    with_items:
+      - /opt/nas/facets_ansible/networx.ear
+      - /opt/nas/facets_ansible/networx-grouper-gps.war
+      - /opt/nas/facets_ansible/WorkflowTomEE.ear
+
+  - name: Stop NetworX_{{ networx_1 }} Service
+    win_service:
+      name: NetworX_{{ networx_1 }}
+      state: stopped
+
+ 
+
+  - name: Remove Old Backups
+    win_file:
+      path: D:\Backups
+      state: absent

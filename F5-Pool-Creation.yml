@@ -1,0 +1,80 @@
+# Create A Pool
+#
+# Variables
+#   pool_name
+#   partition_name
+#   lb_method
+#   f5_server
+#   member_address
+#   member_port
+#   member_description
+#   connection_limit
+#   rate_limit
+#   member_ratio
+#   device_group
+# by Devin St. Clair 2020
+
+---
+- hosts: localhost
+  gather_facts: no
+  become: no
+  vars_files:
+    - lab_vault.yml
+  collections:
+    - f5networks.f5_modules.bigip_pool
+    - f5networks.f5_modules.bigip_pool_member
+    - f5networks.f5_modules.bigip_config
+    - f5networks.f5_modules.bigip_configsync_action
+
+  tasks:
+
+  - name: Create pool
+    f5networks.f5_modules.bigip_pool:
+      state: present
+      name: "{{ pool_name }}"
+      partition: "{{ partition_name }}"
+      lb_method: "{{ lb_method }}"
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ f5_user }}"
+        password: "{{ f5_pass }}"
+    delegate_to: localhost
+    tags: pool
+
+  - name: Add pool member
+    f5networks.f5_modules.bigip_pool_member:
+      pool: "{{ pool_name }}"
+      partition: "{{ partition_name }}"
+      host: "{{ member_address }}"
+      port: "{{ member_port }}"
+      description: "{{ member_description }}"
+      connection_limit: "{{ connection_limit }}"
+      rate_limit: "{{ rate_limit }}"
+      ratio: "{{ member_ratio }}"
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ f5_user }}"
+        password: "{{ f5_pass }}"
+    delegate_to: localhost
+    tags: pool_member
+
+  - name: Save the running configuration of the BIG-IP
+    f5networks.f5_modules.bigip_config:
+      save: yes
+      verify: yes
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ f5_user }}"
+        password: "{{ f5_pass }}"
+        validate_certs: no
+    delegate_to: localhost
+
+  - name: Sync configuration from device to group
+    f5networks.f5_modules.bigip_configsync_action:
+    device_group: "{{ device_group }}"
+    sync_device_to_group: yes
+    provider:
+      server: "{{ f5_server }}"
+      user: "{{ f5_user }}"
+      password: "{{ f5_pass }}"
+  delegate_to: localhost

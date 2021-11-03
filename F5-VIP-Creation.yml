@@ -1,0 +1,70 @@
+# Create a VIP
+#
+# Variables
+#   partition_name
+#   vip_name
+#   vip_address
+#   vip_port
+#   pool_name
+#   vip_desc
+#   f5_server
+#   device_group
+# by Devin St. Clair
+
+---
+- hosts: localhost
+  gather_facts: no
+  become: no
+  vars_files:
+    - lab_vault.yml
+  collections:
+    - f5networks.f5_modules.bigip_virtual_server
+    - f5networks.f5_modules.bigip_config
+    - f5networks.f5_modules.bigip_configsync_action
+
+  tasks:
+
+  - name: Add virtual server
+
+    f5networks.f5_modules.bigip_virtual_server:
+      state: present
+      partition: "{{ partition_name }}"
+      name: "{{ vip_name }}"
+      destination: "{{ vip_address }}"
+      port: "{{ vip_port }}"
+      pool: "{{ pool_name }}"
+      snat: Automap
+      description: "{{ vip_desc }}"
+      profiles:
+        - http
+        - name: AA_READY_FOR_VENAFI
+          context: client-side
+      policies:
+      enabled_vlans: all
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ username_rw }}"
+        password: "{{ password_rw }}"
+    delegate_to: localhost
+    tags: vip
+
+  - name: Save the running configuration of the BIG-IP
+    f5networks.f5_modules.bigip_config:
+      save: yes
+      verify: yes
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ username_rw }}"
+        password: "{{ password_rw }}"
+        validate_certs: no
+    delegate_to: localhost
+
+  - name: Sync configuration from device to group
+    f5networks.f5_modules.bigip_configsync_action:
+    device_group: "{{ device_group }}"
+    sync_device_to_group: yes
+    provider:
+      server: "{{ f5_server }}"
+      user: "{{ f5_user }}"
+      password: "{{ f5_pass }}"
+  delegate_to: localhost

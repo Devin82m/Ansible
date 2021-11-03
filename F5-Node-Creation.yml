@@ -1,0 +1,45 @@
+# Create A Node
+#
+# Variables
+#   node_host
+#   node_name
+#   partition_name
+#   f5_server
+#   device_group
+# by Devin St. Clair
+
+---
+- hosts: localhost
+  gather_facts: no
+  become: no
+  vars_files:
+    - lab_vault.yml
+  collections:
+    - f5networks.f5_modules.bigip_node
+    - f5networks.f5_modules.bigip_config
+    - f5networks.f5_modules.bigip_configsync_action
+
+  tasks:
+
+  - name: Add node
+    f5networks.f5_modules.bigip_node:
+      host: "{{ node_host }}"
+      name: "{{ node_name }}"
+      partition: "{{ partition_name }}"
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ username_rw }}"
+        password: "{{ password_rw }}"
+        transport: rest
+        server_port: 443
+        validate_certs: no
+
+  - name: Save the running configuration of the BIG-IP
+    f5networks.f5_modules.bigip_config:
+      save: yes
+      verify: yes
+      provider:
+        server: "{{ f5_server }}"
+        user: "{{ username_rw }}"
+        password: "{{ password_rw }}"
+        validate_certs: no

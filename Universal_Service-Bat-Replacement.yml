@@ -1,0 +1,95 @@
+## ansible-playbook universal_service-bat_replacement.yml -i inventory/devfacets.inv -extra-vars "networx_1= networx_2= workflow_1= workflow_2="" --vault-password-file /home/<username>/.<username>
+## need to run as <username> user.
+# Required variables:
+#   networx_1 = The number in the name of the service (9081 or 20081)
+#   networx_2 = The number in the name of the service (9082 or 20082)
+#   workflow_1 = The number in the name of the service (9083 or 20083)
+#   workflow_2 = The number in the name of the service (9084 or 20084)
+# Created by Devin St. Clair
+
+---
+- hosts: nwx_core
+  user: <username>
+  gather_facts: no
+  become: no
+  vars_files:
+    - /home/<username>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+
+  tasks:
+
+# Stop Services
+
+  - name: Stop NetworX_{{ networx_1 }} Service
+    win_service:
+      name: NetworX_{{ networx_1  }}
+      state: stopped
+
+  - name: Stop NetworX_{{ networx_2 }} Service
+    win_service:
+      name: NetworX_{{ networx_2 }}
+      state: stopped
+
+  - name: Stop Workflow_{{ workflow_1 }} Service
+    win_service:
+      name: Workflow_{{ workflow_1 }}
+      state: stopped
+
+  - name: Stop Workflow_{{ workflow_2 }} Service
+    win_service:
+      name: Workflow_{{ workflow_2 }}
+      state: stopped
+
+
+# Backup Original Service.bat Files
+
+  - name: Backup Service.bat 1
+    win_shell: rename-item 'D:\NetworX_TomEE\TomEE_{{ networx_1 }}\bin\service.bat' -newname 'service.batOLD'
+
+  - name: Backup Service.bat 2
+    win_shell: rename-item 'D:\NetworX_TomEE\TomEE_{{ networx_2 }}\bin\service.bat' -newname 'service.batOLD'
+
+  - name: Backup Service.bat 3
+    win_shell: rename-item 'D:\WorkFlow_TomEE\TomEE_{{ workflow_1 }}\bin\service.bat' -newname 'service.batOLD'
+
+  - name: Backup Service.bat 4
+    win_shell: rename-item 'D:\WorkFlow_TomEE\TomEE_{{ workflow_2 }}\bin\service.bat' -newname 'service.batOLD'
+
+
+# Copy New File
+
+  - name: Copy New Service.bat
+    win_copy:
+      src: /opt/nas/facets_ansible/service.bat
+      dest: "{{ item }}"
+    with_items:
+      - D:\NetworX_TomEE\TomEE_{{ networx_1 }}\bin\
+      - D:\NetworX_TomEE\TomEE_{{ networx_2 }}\bin\
+      - D:\WorkFlow_TomEE\TomEE_{{ workflow_1 }}\bin\
+      - D:\WorkFlow_TomEE\TomEE_{{ workflow_2 }}\bin\
+
+
+# Start Services
+
+  - name: Start NetworX_{{ networx_1 }} Service
+    win_service:
+      name: NetworX_{{ networx_1 }}
+      state: started
+
+  - name: Start NetworX_{{ networx_2 }} Service
+    win_service:
+      name: NetworX_{{ networx_2 }}
+      state: started
+
+  - name: Start Workflow_{{ workflow_1 }} Service
+    win_service:
+      name: Workflow_{{ workflow_1 }}
+      state: started
+
+  - name: Start  Workflow_{{ workflow_2 }} Service
+    win_service:
+      name: Workflow_{{ workflow_2 }}
+      state: started
