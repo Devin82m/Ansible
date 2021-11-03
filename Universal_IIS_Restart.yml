@@ -1,0 +1,25 @@
+## ansible-playbook universal_iis_restart.yml -i inventory/devfacets.inv --vault-password-file /home/<username>/.<username>
+## need to run as <username> user.
+## Devin St. Clair 2019
+
+# Required variables:
+#   server_type = The type of server you wish to run against.
+
+---
+- hosts: "{{ server_type }}_core"
+  user: <username>
+  gather_facts: no
+  become: no
+  vars_files:
+    - /home/<user>/automate/auto.yml
+  vars:
+    ansible_port: 5986
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+
+  tasks:
+ 
+
+# Copy Installers To Servers
+  - name: Restart IIS
+    win_command: iisreset
