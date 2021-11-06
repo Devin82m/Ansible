@@ -1,0 +1,22 @@
+# This is an exampe inventory file to prove I know how to make one
+
+[prod]
+prod1_app
+prod2_app
+prod3_app
+prod4_app
+
+[prod:vars]
+port=3367
+
+
+[uat]
+uat1_app
+uat2_app
+uat3_app
+uat4_app
+
+[dev]
+dev1_app
+dev2_app
+
